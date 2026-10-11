@@ -15,6 +15,8 @@ deferred class
 
 inherit
 	XT_PARSING_BUFFERS
+		export
+			{XT_DOCUMENT_TYPE_PARTS_LIST} parser_data
 		redefine
 			make, set_defaults, reset
 		end
@@ -25,6 +27,9 @@ inherit
 		end
 
 	XT_PARSE_EVENTS
+		export
+			{XT_DOCUMENT_TYPE_PARTS_LIST} on_external_entity_reference
+		end
 
 	XT_PARSE_CONSTANTS
 		rename
@@ -205,6 +210,7 @@ feature {NONE} -- Token processing
 	): INTEGER
 		local
 			buffer_index_copy, error: INTEGER; entity_name: XT_ENTITY_NAME; source_type: NATURAL_8
+			context: detachable STRING
 		do
 			entity_name := parameter_name_cache.item (buf, start_index, end_index)
 			if entity_name.is_open then
@@ -212,7 +218,13 @@ feature {NONE} -- Token processing
 
 			elseif attached parameter_entity_table.item (entity_name) as parameter then
 				c_set_has_parameter_entity_reference (parse_data, True)
-				if not entity_name.has_external_id then
+				if entity_name.has_external_id then
+					if c_param_entity_parsing_enabled (parse_data) then
+						if not on_external_entity_reference (entity_name, context, parse_data) then
+							Result := Error_external_entity_handling
+						end
+					end
+				else
 					buffer_index_copy := buffer_index -- save field
 					buffer_index := 0; source_type := c_accounting_source_type (parse_data)
 					entity_name.open
@@ -295,6 +307,7 @@ feature {NONE} -- Token processing
 								end
 								put_boolean (done, Result > 0)
 							end
+							Result := document_type_parts_list.on_document_type_end (Current)
 						else
 							Result := Error_syntax; put_boolean (done, True)
 						end
@@ -382,26 +395,26 @@ feature {NONE} -- Event handlers
 		do
 			inspect declaration
 				when ATTLIST then
-					if attached attribute_parts_list as parts_list then
+					if attached attribute_parts_list as parts then
 						inspect token when Tok_decl_close then
-							if parts_list.is_valid_as_one then
+							if parts.is_valid_as_one then
 								do_nothing -- legal syntax but does not call handler
 							else
-								inspect parts_list.count when 4, 5 then
+								inspect parts.count when 4, 5 then
 									do_nothing -- already handled when `token /= Tok_decl_close'
 								else
 									Result := Error_syntax
 								end
 							end
-							parts_list.wipe_out
+							parts.wipe_out
 
 						else
-							if parts_list.is_complete then
-								if attached parts_list.default_value as value then
-									extend_attribute_value_defaults_table (parts_list, value)
+							if parts.is_complete then
+								if attached parts.default_value as value then
+									extend_attribute_value_defaults_table (parts, value)
 								end
-								on_attribute_list_declaration (parts_list, parse_data)
-								parts_list.reset -- reset to just `element_name'
+								on_attribute_list_declaration (parts, parse_data)
+								parts.reset -- reset to just `element_name'
 							else
 								Result := Error_syntax
 							end
@@ -409,33 +422,33 @@ feature {NONE} -- Event handlers
 					end
 
 				when ELEMENT then
-					if attached element_parts_list as parts_list and then parts_list.is_valid then
-						parts_list.on_close
-						if attached parts_list.particle as model then
-							on_element_declaration (parts_list.name, model, parse_data)
-							parts_list.wipe_out
+					if attached element_parts_list as parts and then parts.is_valid then
+						parts.on_close
+						if attached parts.particle as model then
+							on_element_declaration (parts.name, model, parse_data)
+							parts.wipe_out
 						else
 							Result := Error_syntax
 						end
 					end
 
 				when ENTITY_ then
-					if attached entity_parts_list as parts_list then
-						if parts_list.is_valid then
-							parts_list.extend_table (entity_table)
+					if attached entity_parts_list as parts then
+						if parts.is_valid then
+							parts.extend_table (entity_table)
 							set_entity_handled (parse_data, False)
-							on_entity (parts_list, parse_data)
-							parts_list.wipe_out
+							on_entity (parts, parse_data)
+							parts.wipe_out
 						else
 							Result := Error_syntax
 						end
 					end
 
 				when DOCTYPE then
-					if attached document_type_parts_list as parts_list then
-						if parts_list.is_valid then
-							on_doctype_declaration_start (parts_list, c_has_dtd_section (parse_data), parse_data)
-							if parts_list.has_external_subset then
+					if attached document_type_parts_list as parts then
+						if parts.is_valid then
+							on_doctype_declaration_start (parts, c_has_dtd_section (parse_data), parse_data)
+							if parts.has_external_id then
 								c_set_has_parameter_entity_reference (parse_data, True)
 							end
 						else
@@ -444,21 +457,21 @@ feature {NONE} -- Event handlers
 					end
 
 				when NOTATION_ then
-					if attached notation_parts_list as parts_list then
-						if parts_list.is_valid then
-							on_notation_declaration (parts_list, parse_data)
-							parts_list.wipe_out
+					if attached notation_parts_list as parts then
+						if parts.is_valid then
+							on_notation_declaration (parts, parse_data)
+							parts.wipe_out
 						else
 							Result := Error_syntax
 						end
 					end
 
 				when PARAMETER_ENTITY then
-					if attached parameter_entity_parts_list as parts_list then
-						if parts_list.is_valid then
-							parts_list.extend_table (parameter_entity_table)
-							on_entity (parts_list, parse_data)
-							parts_list.wipe_out
+					if attached parameter_entity_parts_list as parts then
+						if parts.is_valid then
+							parts.extend_table (parameter_entity_table)
+							on_entity (parts, parse_data)
+							parts.wipe_out
 						else
 							Result := Error_syntax
 						end

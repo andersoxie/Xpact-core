@@ -13,6 +13,8 @@ deferred class
 	XT_EXTERNALLY_LINKABLE_DECLARATION
 
 inherit
+	XT_EXTERNAL_IDENTITY_I
+	
 	XT_PARSE_CONSTANTS
 		rename
 			ENTITY as ENTITY_,
@@ -32,6 +34,12 @@ feature {NONE} -- Initialization
 		end
 
 feature -- Status query
+
+	has_external_id: BOOLEAN
+		-- `True' if has public or system id
+		do
+			Result := external_id_type > 0
+		end
 
 	has_public_id: BOOLEAN
 		do

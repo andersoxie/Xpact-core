@@ -110,17 +110,31 @@ static void crc32_update_bool(crc_ctx_t *ctx, int value) {
  * declarations that follow it in the internal subset.
  * Calling XML_Parse on the sub-parser (even with empty content) sets
  * dtd->paramEntityRead=true, which keeps keepProcessing=true.
- * Also combines its own arguments, left to right, into the checksum for
- * -type entity (the same type XML_SkippedEntityHandler contributes to):
- * context, base, systemId, publicId. context is NULL when the reference is
- * to a parameter entity (as here) and non-NULL for a general entity
- * reference; systemId is never NULL; base is NULL unless XML_SetBase was
- * called (this program never calls it); publicId is NULL unless a PUBLIC
- * identifier was given. All four are skipped when NULL. `parser' itself
- * (the referencing parser, used below only to create the sub-parser) isn't
- * document data, so it isn't checksummed; `ctx' is recovered from it via
- * XML_GetUserData rather than received directly, since this handler's own
- * first argument is the parser, not userData. */
+ *
+ * Also combines its own arguments, left to right, into the checksum --
+ * but which -type and which arguments depends on whether context is NULL,
+ * since that's what distinguishes a genuine general-entity reference from
+ * a DTD-related one. context is NULL only when the reference is to a
+ * parameter entity -- which includes not just an explicit %name; but also
+ * expat's own read of a DOCTYPE's external subset (SYSTEM/PUBLIC id),
+ * internally modelled as a reference to a pseudo parameter entity; see
+ * xmlparse.c:5399-5401. So:
+ *   - context non-NULL (-type entity): a real external *general* entity
+ *     reference (&name; resolved externally). context, base, systemId,
+ *     publicId are all combined, left to right.
+ *   - context NULL (-type entity-decl): a DTD-related event -- a genuine
+ *     %name; reference, or just the external-subset read triggered by the
+ *     DOCTYPE's own SYSTEM/PUBLIC id, with no %name;/&name; in the
+ *     document at all. context itself is skipped (it's NULL either way);
+ *     base, systemId, publicId are combined, left to right.
+ * In both cases base/systemId/publicId are individually skipped when NULL
+ * (base is NULL unless XML_SetBase was called, which this program never
+ * does; systemId is never NULL; publicId is NULL unless a PUBLIC
+ * identifier was given). `parser' itself (the referencing parser, used
+ * below only to create the sub-parser) isn't document data, so it isn't
+ * checksummed; `ctx' is recovered from it via XML_GetUserData rather than
+ * received directly, since this handler's own first argument is the
+ * parser, not userData. */
 static int XMLCALL on_external_entity(XML_Parser parser,
                                       const XML_Char *context,
                                       const XML_Char *base,
@@ -128,9 +142,24 @@ static int XMLCALL on_external_entity(XML_Parser parser,
                                       const XML_Char *publicId)
 {
 	crc_ctx_t *ctx = (crc_ctx_t *) XML_GetUserData(parser);
-	if (ctx->type == TYPE_ENTITY) {
-		if (context)
-			crc32_update(ctx, (const unsigned char *) context, strlen(context));
+	XML_Bool add_external_id = XML_FALSE;
+	switch (ctx->type){
+		case TYPE_ENTITY:
+			if (context){
+				crc32_update(ctx, (const unsigned char *) context, strlen(context));
+				add_external_id = XML_TRUE;
+			}
+			break;
+			
+		case TYPE_ENTITY_DECL:
+			if (! context)
+				add_external_id = XML_TRUE;
+			break;
+		default:
+			break;
+		
+	}
+	if (add_external_id) {
 		if (base)
 			crc32_update(ctx, (const unsigned char *) base, strlen(base));
 		if (systemId)
@@ -581,27 +610,29 @@ static void usage(const char *prog) {
 			prog);
 }
 
+/* Index i corresponds to ASCII code i + '\b' (8), covering the control-
+ * character range BS(8)..CR(13); '\0' means "no escape" (e.g. VT, 11).
+ * Mirrors `escape_characters' in EL_TRACEABLE_CRC_32_DIGEST.put_indexable. */
+static const char escape_table[] = {
+	'B', /* BS (backspace, 8) */
+	'T', /* HT (tab, 9) */
+	'N', /* NL (newline, 10) */
+	'\0', /* VT (11) -- no escape */
+	'F', /* FF (form feed, 12) -- expat's CONTEXT_SEP */
+	'R'  /* CR (carriage return, 13) */
+};
+
 static void println_escaped (const char *s, int len) {
-	char code;
 	for (int i = 0; i < len; i++) {
-		switch (s[i]) {
-			case '\n':
-				code = 'N';
-				break;
-			case '\t':
-				code = 'T';
-				break;
-			case '\r':
-				code = 'R';
-				break;
-			default:
-				code = '\0';
-				putchar(s[i]);
-				break;
-		}
-		if (code){
+		unsigned char code = (unsigned char) s[i];
+		char escape = '\0';
+		if (code >= '\b' && code <= '\r')
+			escape = escape_table[code - '\b'];
+		if (escape) {
 			putchar('%');
-			putchar(code);
+			putchar(escape);
+		} else {
+			putchar(s[i]);
 		}
 	}
 	putchar('"');

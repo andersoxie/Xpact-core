@@ -52,6 +52,25 @@ feature -- Access
 	cache_bucket_area: SPECIAL [SPECIAL [XT_URI_MAPPED_NAME]]
 		-- name cache `bucket_area' from `XT_URI_MAPPED_NAME_CACHE'
 
+feature -- Basic operations
+
+	append_to (entity_context: STRING)
+		do
+			if attached item (Default_uri_key) as uri then
+				entity_context.append_character ('=')
+				entity_context.append (uri)
+			end
+			from start until after loop
+				if key_for_iteration /= Default_uri_key then
+					entity_context.append_character ('%F')
+					entity_context.append (key_for_iteration)
+					entity_context.append_character ('=')
+					entity_context.append (item_for_iteration)
+				end
+				forth
+			end
+		end
+
 feature -- Event handler
 
 	on_pop (handler: XT_PARSE_EVENTS; parse_data: POINTER)

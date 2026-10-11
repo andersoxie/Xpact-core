@@ -29,6 +29,11 @@ inherit
 			copy, is_equal
 		end
 
+	XT_PARSE_ERROR_CONSTANTS
+		undefine
+			copy, is_equal
+		end
+
 create
 	make
 
@@ -54,12 +59,6 @@ feature -- Access
 
 feature -- Status query
 
-	has_external_subset: BOOLEAN
-		-- `True' if has public or system id
-		do
-			Result := external_id_type > 0
-		end
-
 	is_valid: BOOLEAN
 		do
 			if count = 1 then
@@ -67,6 +66,19 @@ feature -- Status query
 					Result := True
 				else
 					Result := external_id_list.count = external_id_part_count
+				end
+			end
+		end
+
+feature -- Event handler
+
+	on_document_type_end (prolog: XT_XML_PROLOG_PARSER): INTEGER
+		local
+			context: detachable STRING
+		do
+			if has_external_id and then prolog.parser_data.is_param_entity_parsing_enabled then
+				if not prolog.on_external_entity_reference (Current, context, prolog.parser_data.self_ptr) then
+					Result := Error_external_entity_handling
 				end
 			end
 		end

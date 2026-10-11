@@ -34,6 +34,7 @@ feature {NONE} -- Initialization
 	make
 		do
 			create bucket_area.make_filled (Default_bucket, Size)
+			create entity_context_buffer.make_empty
 		end
 
 feature -- Measurement
@@ -83,6 +84,15 @@ feature -- Access
 	default_name: like Default_bucket.item
 		do
 			Result := Default_bucket [0]
+		end
+
+	entity_context (entity: XT_ENTITY_NAME): STRING
+		do
+			Result := entity_context_buffer
+			Result.wipe_out
+			if entity.count >= 3 then
+				Result.append_substring (entity, 2, entity.count - 1)
+			end
 		end
 
 	item, attribute_item (buffer: SPECIAL [CHARACTER]; start_index, end_index, colon_index: INTEGER): like default_name
@@ -345,6 +355,8 @@ feature {NONE} -- Internal attributes
 
 	bucket_area: SPECIAL [like Default_bucket]
 		-- array of buckets holding names with same hash value
+
+	entity_context_buffer: STRING
 
 feature {NONE} -- Constants
 

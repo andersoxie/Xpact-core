@@ -556,8 +556,8 @@ feature {NONE} -- Processor dispatch
 		done: TYPED_POINTER [BOOLEAN]
 	): INTEGER
 		local
-			buffer_index_copy, code, error: INTEGER; entity_name: XT_ENTITY_NAME
-			source_type: NATURAL_8
+			buffer_index_copy, code, error: INTEGER; entity_name: XT_ENTITY_NAME; source_type: NATURAL_8
+			context_string: detachable STRING
 		do
 			code := predefined_entity_code (buf, start_index, end_index)
 			inspect code when -1 then
@@ -567,6 +567,11 @@ feature {NONE} -- Processor dispatch
 
 				elseif entity_name.is_open then
 					Result := Error_recursive_entity_ref; put_boolean (done, True)
+
+				elseif entity_name.has_external_id then
+					if not on_external_entity_reference (entity_name, name_cache.entity_context (entity_name), parse_data) then
+						Result := Error_external_entity_handling
+					end
 
 				elseif attached entity_table.item (entity_name) as entity_value then
 					buffer_index_copy := buffer_index -- save field

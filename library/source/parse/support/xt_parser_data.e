@@ -212,6 +212,11 @@ feature -- Status query
 			Result := c_in_prolog_section (self_ptr)
 		end
 
+	is_param_entity_parsing_enabled: BOOLEAN
+		do
+			Result := c_param_entity_parsing_enabled (self_ptr)
+		end
+
 	in_cdata_section: BOOLEAN
 		do
 			Result := c_in_cdata_section (self_ptr)
@@ -223,7 +228,7 @@ feature -- Status query
 				Result := c_has_parameter_entity_reference (self_ptr)
 			end
 		end
-		
+
 feature {NONE} -- Implementation
 
 	fill_byte_type_range (struct_ptr: POINTER; type, start_index, end_index: INTEGER)

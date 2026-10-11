@@ -320,8 +320,29 @@ feature {NONE} -- Parse events
 		do
 		end
 
-	on_external_entity_reference (context: STRING; system_id, public_id: detachable STRING; parse_data: POINTER): BOOLEAN
+	on_external_entity_reference (a_entity: XT_EXTERNAL_IDENTITY_I; a_context: detachable STRING; parse_data: POINTER): BOOLEAN
+		-- typedef int (XMLCALL *XML_ExternalEntityRefHandler) (
+		-- 	XML_Parser parser, const XML_Char *context, const XML_Char *base,
+		-- 	const XML_Char *systemId, const XML_Char *publicId);
+		local
+			add_external_id: BOOLEAN
 		do
+			inspect data_type
+				when Type_entity then
+					if attached a_context as context then
+						checksum.add_string (context)
+						add_external_id := True
+					end
+
+				when Type_decl_entity then
+					add_external_id := a_context = Void
+			else
+			end
+			if add_external_id and then attached checksum as crc then
+				crc.add_attached_string (a_entity.system_id)
+				crc.add_attached_string (a_entity.public_id)
+			end
+			Result := True
 		end
 
 	on_not_standalone (parse_data: POINTER): INTEGER

@@ -1,4 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE newsfeed [
+	<!ENTITY emily_links PUBLIC "https://emilyartist.ca" "emilyartist.xml">
+]>
 <!-- test URI mapping parser with nested scopes like xmlns='http://www.w3.org/1999/xhtml' -->
 <feed xmlns='http://www.w3.org/2005/Atom'
       xmlns:thr='http://purl.org/syndication/thread/1.0'
@@ -30,6 +33,7 @@
  <summary type='xhtml'><div xmlns='http://www.w3.org/1999/xhtml'>Meet     <a href='https://emilyartist.ca'>Emily van Lidth de Jeude</a>, an     <a href='https://emilyartist.ca/projects/'>artist</a> who lives on an island and has     <a href='https://emilyartist.ca/2026/09/we-built-our-chickens-a-vacation-home/'>the most adorable chicken coop</a> you’ll ever see.     Those URLs start with <code>emilyartist.ca</code> now; until recently it was <code>emilyvanartist.noblogs.org</code>. But     that site, there for many years, is down now, and not coming back up. Why? Well, her email address used to end with     <code>@autistici.org</code> (it’s broken too now), and therein lies the story</div></summary>
 <content type='xhtml'><div xmlns='http://www.w3.org/1999/xhtml'>
     <p>Meet
+    &emily_links;
     <a href="https://emilyartist.ca">Emily van Lidth de Jeude</a>, an
     <a href="https://emilyartist.ca/projects/">artist</a> who lives on an island and has
     <a href="https://emilyartist.ca/2026/09/we-built-our-chickens-a-vacation-home/">the most adorable chicken coop</a> you’ll ever see.

@@ -15,7 +15,7 @@ class
 inherit
 	XT_NAME_CACHE
 		redefine
-			attribute_item, make, name_area, name_count, new_name,
+			attribute_item, entity_context, make, name_area, name_count, new_name,
 			on_pop, on_xmlns_declaration_end,
 			reset, transfer, valid_tag_name_count, Default_bucket
 		end
@@ -40,6 +40,19 @@ feature {NONE} -- Initialization
 		end
 
 feature -- Access
+
+	entity_context (a_entity: XT_ENTITY_NAME): STRING
+		do
+			Result := entity_context_buffer
+			Result.wipe_out
+			xmlns_scope.append_to (Result)
+			if a_entity.count >= 3 then
+				if Result.count > 0 then
+					Result.append_character ('%F')
+				end
+				Result.append_substring (a_entity, 2, a_entity.count - 1)
+			end
+		end
 
 	separator: CHARACTER
 

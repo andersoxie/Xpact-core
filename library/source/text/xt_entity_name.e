@@ -17,7 +17,12 @@ class
 	XT_ENTITY_NAME
 
 inherit
-	STRING
+	STRING_8
+
+	XT_EXTERNAL_IDENTITY_I
+		undefine
+			copy, is_equal, out
+		end
 
 create
 	make, make_empty, make_from_buffer, make_shared
