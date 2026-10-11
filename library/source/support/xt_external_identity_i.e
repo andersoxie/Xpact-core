@@ -17,10 +17,14 @@ feature -- Access
 
 	public_id: detachable STRING
 		deferred
+		ensure
+			null_terminated: attached Result as s implies s.area [s.count] = '%U'
 		end
 
 	system_id: detachable STRING
 		deferred
+		ensure
+			null_terminated: attached Result as s implies s.area [s.count] = '%U'
 		end
 
 end

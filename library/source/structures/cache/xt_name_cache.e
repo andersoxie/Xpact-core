@@ -93,6 +93,9 @@ feature -- Access
 			if entity.count >= 3 then
 				Result.append_substring (entity, 2, entity.count - 1)
 			end
+			null_terminate (Result)
+		ensure
+			null_terminated: null_terminated (Result)
 		end
 
 	item, attribute_item (buffer: SPECIAL [CHARACTER]; start_index, end_index, colon_index: INTEGER): like default_name

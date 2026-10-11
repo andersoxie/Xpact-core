@@ -384,6 +384,12 @@ feature {NONE} -- Status report
 			end
 		end
 
+	frozen null_terminated (str: STRING): BOOLEAN
+		do
+			Result := str.area [str.count] = '%U'
+		end
+
+
 	frozen same_characters (area: SPECIAL [CHARACTER_8]; lower, upper: INTEGER; string: STRING): BOOLEAN
 		-- `True' if characters in `area' from `lower' to `upper' match those in `string'
 		local
@@ -574,7 +580,7 @@ feature {NONE} -- Basic operations
 			end
 		end
 
-	normalize_whitespace (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER)
+	frozen normalize_whitespace (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER)
 		--  %T and %N are replaced with a space
 		-- XML §3.3.3 attribute-value normalisation: replace %N %T with space
 		require
@@ -591,6 +597,11 @@ feature {NONE} -- Basic operations
 				end
 				i := i + 1
 			end
+		end
+
+	frozen null_terminate (str: STRING)
+		do
+			str.area [str.count] := '%U'
 		end
 
 feature {NONE} -- Constants

@@ -19,6 +19,8 @@ class
 
 inherit
 	XT_XML_PARSER_BASE
+		rename
+			null_terminate as null_terminate_string
 		redefine
 			make
 		end
@@ -338,12 +340,27 @@ feature {NONE} -- Other parse events
 		-- typedef int (XMLCALL *XML_ExternalEntityRefHandler) (
 		-- 	XML_Parser parser, const XML_Char *context, const XML_Char *base,
 		-- 	const XML_Char *systemId, const XML_Char *publicId);
+		local
+			ptr: POINTER
 		do
+			ptr := c_on_external_entity_reference (parse_data)
+			if is_attached (ptr) then
+				Result := call_on_external_entity_reference (
+					ptr, parse_data, address_if (context), c_base (parse_data),
+					address_if (a_entity.system_id), address_if (a_entity.public_id)
+				).to_boolean
+			end
 		end
 
 	on_not_standalone (parse_data: POINTER): INTEGER
 		-- typedef int (XMLCALL *XML_NotStandaloneHandler) (void *userData);
+		local
+			ptr: POINTER
 		do
+			ptr := c_on_not_standalone (parse_data)
+			if is_attached (ptr) then
+				Result := call_on_not_standalone (ptr, c_user_data (parse_data))
+			end
 		end
 
 	on_skipped_entity (entity_name: STRING; is_parameter: BOOLEAN; parse_data: POINTER)
@@ -437,11 +454,6 @@ feature {NONE} -- Implementation
 				null_terminate (area, name.count - 2, parse_data) -- exclude ';'
 				Result := area.item_address (1) -- exclude '&'
 			end
-		end
-
-	null_terminated (str: STRING): BOOLEAN
-		do
-			Result := str.area [str.count] = '%U'
 		end
 
 	undo_null_termination (buf: like buffer; parse_data: POINTER)

@@ -52,6 +52,7 @@ feature -- Access
 				end
 				Result.append_substring (a_entity, 2, a_entity.count - 1)
 			end
+			null_terminate (Result)
 		end
 
 	separator: CHARACTER
