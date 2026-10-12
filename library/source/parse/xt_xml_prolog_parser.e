@@ -32,12 +32,10 @@ inherit
 		end
 
 	XT_PARSE_CONSTANTS
-		rename
-			ENTITY as ENTITY_,
-			NOTATION as NOTATION_
-		end
 
 	XT_C_EXPANSION_ACCOUNTING_STRUCT
+
+	XT_DTD_KEYWORDS
 
 feature {NONE} -- Initialization
 
@@ -60,8 +58,8 @@ feature {NONE} -- Initialization
 			create parameter_entity_parts_list.make (parameter_name_cache)
 
 			create declaration_parts.make_filled (document_type_parts_list, PARAMETER_ENTITY)
-			declaration_parts [ATTLIST - 1] := attribute_parts_list
-			declaration_parts [ELEMENT - 1] := element_parts_list
+			declaration_parts [ATTLIST_ - 1] := attribute_parts_list
+			declaration_parts [ELEMENT_ - 1] := element_parts_list
 			declaration_parts [ENTITY_ - 1] := entity_parts_list
 			declaration_parts [NOTATION_ - 1] := notation_parts_list
 			declaration_parts [PARAMETER_ENTITY - 1] := parameter_entity_parts_list
@@ -123,7 +121,7 @@ feature {NONE} -- Token processing
 					end
 
 				when Tok_name then
-					inspect declaration when ATTLIST .. PARAMETER_ENTITY then
+					inspect declaration when ATTLIST_ .. PARAMETER_ENTITY then
 						inspect declaration_count when 2 then
 							parts_list.extend (buf, index, end_index, token, newline_or_tab_found)
 							if parts_list.is_complete then
@@ -137,7 +135,7 @@ feature {NONE} -- Token processing
 					end
 
 				when Tok_name_question, Tok_name_asterisk, Tok_name_plus then
-					inspect declaration when ELEMENT then
+					inspect declaration when ELEMENT_ then
 						inspect declaration_count when 2 then
 							parts_list.extend (buf, index, end_index - 1, token, newline_or_tab_found)
 						else
@@ -148,7 +146,7 @@ feature {NONE} -- Token processing
 					end
 
 				when Tok_literal then
-					inspect declaration when ATTLIST .. PARAMETER_ENTITY then
+					inspect declaration when ATTLIST_ .. PARAMETER_ENTITY then
 						inspect declaration_count when 2 then
 							if attached expanded_dtd_literal (buf, index, end_index, parse_data) as str
 								and then attached str.area as area
@@ -171,7 +169,7 @@ feature {NONE} -- Token processing
 					end
 
 				when Tok_pound_name then
-					inspect declaration when ATTLIST .. PARAMETER_ENTITY then
+					inspect declaration when ATTLIST_ .. PARAMETER_ENTITY then
 						parts_list.extend (buf, index, end_index, token, newline_or_tab_found)
 						if parts_list.is_complete then
 							Result := on_close_declaration (declaration, token, parse_data)
@@ -288,7 +286,7 @@ feature {NONE} -- Token processing
 						inspect decl_type when 0 then
 							Result := Error_syntax; put_boolean (done, True)
 						else
-							if declaration_count = 0 and then decl_type = DOCTYPE then
+							if declaration_count = 0 and then decl_type = DOCTYPE_ then
 								push_declaration (decl_type)
 							else
 								Result := Error_syntax; put_boolean (done, True)
@@ -301,13 +299,15 @@ feature {NONE} -- Token processing
 							if c_has_dtd_section (parse_data) then
 								do_nothing
 							else
-								Result := on_close_declaration (DOCTYPE, token, parse_data)
+								Result := on_close_declaration (DOCTYPE_, token, parse_data)
 								if Result = 0 and then not c_is_standalone (parse_data) then
 									Result := on_not_standalone (parse_data)
 								end
 								put_boolean (done, Result > 0)
 							end
-							Result := document_type_parts_list.on_document_type_end (Current)
+							if Result = 0 then
+								Result := document_type_parts_list.on_document_type_end (Current)
+							end
 						else
 							Result := Error_syntax; put_boolean (done, True)
 						end
@@ -330,7 +330,7 @@ feature {NONE} -- Token processing
 						inspect declaration_count when 1 then
 							set_in_dtd_section (parse_data, True)
 							set_has_dtd_section (parse_data, True)
-							Result := on_close_declaration (DOCTYPE, token, parse_data)
+							Result := on_close_declaration (DOCTYPE_, token, parse_data)
 							put_boolean (done, Result > 0)
 						else
 							Result := Error_syntax; put_boolean (done, True)
@@ -394,7 +394,7 @@ feature {NONE} -- Event handlers
 	on_close_declaration (declaration, token: INTEGER; parse_data: POINTER): INTEGER
 		do
 			inspect declaration
-				when ATTLIST then
+				when ATTLIST_ then
 					if attached attribute_parts_list as parts then
 						inspect token when Tok_decl_close then
 							if parts.is_valid_as_one then
@@ -421,7 +421,7 @@ feature {NONE} -- Event handlers
 						end
 					end
 
-				when ELEMENT then
+				when ELEMENT_ then
 					if attached element_parts_list as parts and then parts.is_valid then
 						parts.on_close
 						if attached parts.particle as model then
@@ -444,7 +444,7 @@ feature {NONE} -- Event handlers
 						end
 					end
 
-				when DOCTYPE then
+				when DOCTYPE_ then
 					if attached document_type_parts_list as parts then
 						if parts.is_valid then
 							on_doctype_declaration_start (parts, c_has_dtd_section (parse_data), parse_data)
@@ -604,7 +604,7 @@ feature {NONE} -- Implementation
 		do
 			declaration_count := declaration_count - 1
 			inspect declaration_count when 1 then
-				declaration_type := DOCTYPE
+				declaration_type := DOCTYPE_
 			else
 				declaration_type := 0
 			end
@@ -751,10 +751,18 @@ feature {NONE} -- Implementation
 
 	to_declaration_type (buf: like buffer; offset: INTEGER): INTEGER
 		-- one of: Attlist, Doctype, Element, Entity or 0 if no match
+		local
+			i: INTEGER
 		do
-			across Document_definition_names as name until Result > 0 loop
-				if same_characters (buf, offset, offset + name.count - 1, name) then
-					Result := @ name.cursor_index
+			if attached Document_declarators as declarators then
+				from i := 1 until i > declarators.count or Result > 0 loop
+					if attached declarators [i] as name
+						and then same_characters (buf, offset, offset + name.count - 1, name)
+					then
+						Result := i
+					else
+						i := i + 1
+					end
 				end
 			end
 		end

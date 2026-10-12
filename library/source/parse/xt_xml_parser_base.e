@@ -557,7 +557,6 @@ feature {NONE} -- Processor dispatch
 	): INTEGER
 		local
 			buffer_index_copy, code, error: INTEGER; entity_name: XT_ENTITY_NAME; source_type: NATURAL_8
-			context_string: detachable STRING
 		do
 			code := predefined_entity_code (buf, start_index, end_index)
 			inspect code when -1 then

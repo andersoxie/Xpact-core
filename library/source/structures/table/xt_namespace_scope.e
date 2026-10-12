@@ -26,8 +26,6 @@ inherit
 		end
 
 	XT_STRING_CONSTANTS
-		rename
-			Empty as Empty_literal
 		undefine
 			copy, is_equal
 		end
@@ -62,7 +60,9 @@ feature -- Basic operations
 			end
 			from start until after loop
 				if key_for_iteration /= Default_uri_key then
-					entity_context.append_character ('%F')
+					if entity_context.count > 0 then
+						entity_context.append_character ('%F')
+					end
 					entity_context.append (key_for_iteration)
 					entity_context.append_character ('=')
 					entity_context.append (item_for_iteration)

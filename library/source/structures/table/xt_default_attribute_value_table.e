@@ -30,8 +30,6 @@ inherit
 		end
 
 	XT_STRING_CONSTANTS
-		rename
-			Empty as Empty_string
 		undefine
 			copy, is_equal
 		end

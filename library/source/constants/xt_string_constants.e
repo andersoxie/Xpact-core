@@ -12,42 +12,9 @@ note
 class
 	XT_STRING_CONSTANTS
 
-feature {NONE} -- Reserved names
-
-	ANY: STRING = "ANY"
-
-	CDATA: STRING = "CDATA"
-
-	EMPTY: STRING = "EMPTY"
-
-	ENTITY: STRING = "ENTITY"
-
-	ENTITIES: STRING = "ENTITIES"
-
-	ID: STRING = "ID"
-
-	IDREF: STRING = "IDREF"
-
-	IDREFS: STRING = "IDREFS"
-
-	NDATA: STRING = "NDATA"
-
-	NMTOKEN: STRING = "NMTOKEN"
-
-	NMTOKENS: STRING = "NMTOKENS"
-
-	NOTATION: STRING = "NOTATION"
-
-	PUBLIC: STRING = "PUBLIC"
-
-	SYSTEM: STRING = "SYSTEM"
-
 feature {STRING_HANDLER} -- Standard strings
 
-	Cdata_lsqb: STRING
-		once
-			Result := CDATA + "["
-		end
+	Cdata_lsqb: STRING = "CDATA["
 
 	Comment_declaration: STRING = "<!--"
 
@@ -67,17 +34,6 @@ feature {STRING_HANDLER} -- Standard strings
 
 feature {NONE} -- Document definition strings
 
-	Document_definition_names: LIST [STRING]
-		local
-			s: XT_STRING_8_ROUTINES
-		once
-			Result := s.to_list ("DOCTYPE, ATTLIST, ELEMENT, ENTITY, NOTATION", ',')
-			Result.compare_objects
-		ensure
-			valid_first: Result [{XT_PARSE_CONSTANTS}.Doctype] ~ "DOCTYPE"
-			valid_last: Result [{XT_PARSE_CONSTANTS}.Notation] ~ "NOTATION"
-		end
-
 	Common_starts_with: LIST [STRING]
 		-- common leading strings at start of document after initial white space
 		local
@@ -89,14 +45,6 @@ feature {NONE} -- Document definition strings
 	Http: STRING = "http"
 
 	Unknown_id: STRING = "Unknown"
-
-	Valid_external_id_names: ARRAY [STRING]
-		once
-			Result := << PUBLIC, SYSTEM >>
-		ensure
-			valid_first: Result [{XT_PARSE_CONSTANTS}.ID_public] = PUBLIC
-			valid_last: Result [{XT_PARSE_CONSTANTS}.ID_system] = SYSTEM
-		end
 
 feature {NONE} -- XML declaration
 

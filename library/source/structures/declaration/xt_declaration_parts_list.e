@@ -45,14 +45,12 @@ inherit
 		end
 
 	XT_PARSE_CONSTANTS
-		rename
-			ENTITY as ENTITY_,
-			NOTATION as NOTATION_
+		
 		undefine
 			copy, is_equal
 		end
 
-	XT_STRING_CONSTANTS
+	XT_DTD_KEYWORDS
 		undefine
 			copy, is_equal
 		end

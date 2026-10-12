@@ -64,26 +64,26 @@ feature {NONE} -- enum XML_ParamEntityParsing
 			Result := PE_parsing_never |..| PE_parsing_always
 		end
 
-feature {XT_STRING_CONSTANTS} -- Declaration types
+feature {XT_DTD_KEYWORDS} -- Declaration types
 
 	Valid_declaration_types: INTEGER_INTERVAL
 		once
-			Result := Doctype |..| Parameter_entity
+			Result := DOCTYPE_ |..| Parameter_entity
 		end
 
-	Doctype: INTEGER = 1
+	DOCTYPE_: INTEGER = 1
 
-	Attlist: INTEGER = 2
+	ATTLIST_: INTEGER = 2
 
-	Element: INTEGER = 3
+	ELEMENT_: INTEGER = 3
 
-	Entity: INTEGER = 4
+	ENTITY_: INTEGER = 4
 
-	Notation: INTEGER = 5
+	NOTATION_: INTEGER = 5
 
 	Parameter_entity: INTEGER = 6
 
-feature {XT_STRING_CONSTANTS} -- External ID types
+feature {XT_DTD_KEYWORDS} -- External ID types
 
 	ID_public: INTEGER = 1
 
