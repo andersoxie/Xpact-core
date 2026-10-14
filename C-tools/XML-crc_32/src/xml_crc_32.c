@@ -7,6 +7,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <expat.h>
+#include "shift_jis_subset.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -104,6 +105,102 @@ static void crc32_update_bool(crc_ctx_t *ctx, int value) {
 	}
 }
 
+/* qsort comparator for canonicalize_context: plain byte-wise ordering, via
+ * strcmp -- just needs a total order, not locale collation. */
+static int compare_context_field(const void *a, const void *b) {
+	const char *const *pa = (const char *const *) a;
+	const char *const *pb = (const char *const *) b;
+	return strcmp(*pa, *pb);
+}
+
+/* Returns a newly malloc'd, reordered copy of `context' for a run-to-run
+ * stable checksum/trace. expat's `context' joins CONTEXT_SEP (ASCII FF,
+ * '\f')-separated fields built by getContext() (xmlparse.c:7352-7436) in a
+ * fixed *category* order: the default namespace binding ("=uri") if any,
+ * then every other active prefix binding ("prefix=uri"), then every
+ * currently open general entity's name, in that order, unconditionally --
+ * see getContext()'s own source, which processes dtd->prefixes and only
+ * then dtd->generalEntities, with no interleaving. So an entity name is
+ * always guaranteed to come after every namespace-binding field already,
+ * by construction; what's NOT guaranteed is the order *within* each
+ * category, since that comes from iterating a hash table keyed with
+ * libexpat's own per-process-random SipHash salt (xmlparse.c:1111-1120),
+ * which varies from run to run even for the same document.
+ *
+ * To cancel that out, every "=" field (a namespace binding -- an entity
+ * name never contains '=') is sorted alphabetically; every non-"=" field
+ * (an entity name) is left in its original relative order, after all the
+ * "=" fields -- which just makes explicit the category order getContext()
+ * already guarantees, rather than relying on it implicitly. Note: if more
+ * than one entity is simultaneously open (nested external-entity
+ * references), their *mutual* order is drawn from that same salted hash
+ * table and is therefore just as nondeterministic as the namespace
+ * bindings -- this function does not address that case, only the
+ * namespace-binding ordering actually observed so far. Caller must
+ * free() the result; returns NULL on allocation failure. */
+static char *canonicalize_context(const char *context) {
+	size_t len = strlen(context);
+	size_t field_count = 1, ns_count = 0, entity_count = 0, i;
+	char *scratch, *out, *p;
+	char **fields, **ns_fields, **entity_fields;
+
+	scratch = (char *) malloc(len + 1);
+	if (! scratch) return NULL;
+	memcpy(scratch, context, len + 1);
+
+	for (i = 0; i < len; i++)
+		if (scratch[i] == '\f')
+			field_count++;
+
+	fields = (char **) malloc(field_count * sizeof(char *));
+	ns_fields = (char **) malloc(field_count * sizeof(char *));
+	entity_fields = (char **) malloc(field_count * sizeof(char *));
+	out = (char *) malloc(len + 1); /* same characters, just reordered */
+	if (! fields || ! ns_fields || ! entity_fields || ! out) {
+		free(scratch); free(fields); free(ns_fields); free(entity_fields); free(out);
+		return NULL;
+	}
+
+	field_count = 0;
+	fields[field_count++] = scratch;
+	for (i = 0; i < len; i++) {
+		if (scratch[i] == '\f') {
+			scratch[i] = '\0';
+			fields[field_count++] = scratch + i + 1;
+		}
+	}
+
+	for (i = 0; i < field_count; i++) {
+		if (strchr(fields[i], '='))
+			ns_fields[ns_count++] = fields[i];
+		else
+			entity_fields[entity_count++] = fields[i];
+	}
+
+	qsort(ns_fields, ns_count, sizeof(char *), compare_context_field);
+
+	p = out;
+	for (i = 0; i < ns_count; i++) {
+		size_t field_len = strlen(ns_fields[i]);
+		if (i > 0) *p++ = '\f';
+		memcpy(p, ns_fields[i], field_len);
+		p += field_len;
+	}
+	for (i = 0; i < entity_count; i++) {
+		size_t field_len = strlen(entity_fields[i]);
+		if (p != out) *p++ = '\f';
+		memcpy(p, entity_fields[i], field_len);
+		p += field_len;
+	}
+	*p = '\0';
+
+	free(scratch);
+	free(fields);
+	free(ns_fields);
+	free(entity_fields);
+	return out;
+}
+
 /* Stub handler for external parameter entities (e.g. %selectors; in XSL files).
  * Without this, expat sets dtd->keepProcessing=false when it hits an external
  * parameter entity ref and has no handler, which silently discards all entity
@@ -146,7 +243,13 @@ static int XMLCALL on_external_entity(XML_Parser parser,
 	switch (ctx->type){
 		case TYPE_ENTITY:
 			if (context){
-				crc32_update(ctx, (const unsigned char *) context, strlen(context));
+				char *canon_context = canonicalize_context(context);
+				if (canon_context) {
+					crc32_update(ctx, (const unsigned char *) canon_context, strlen(canon_context));
+					free(canon_context);
+				} else {
+					crc32_update(ctx, (const unsigned char *) context, strlen(context));
+				}
 				add_external_id = XML_TRUE;
 			}
 			break;
@@ -256,16 +359,19 @@ static const struct { unsigned char byte; int codepoint; } iso_8859_15_overrides
 	{0xBE, 0x0178}  /* LATIN CAPITAL LETTER Y WITH DIAERESIS */
 };
 
-/* XML_UnknownEncodingHandler for ISO-8859-15: the only unrecognized encoding
- * this program knows how to decode. encodingHandlerData is `ctx' (set via
- * XML_SetUnknownEncodingHandler's own, separate data argument, distinct
- * from XML_SetUserData's userData). Fills in `info->map' with a single-byte
- * encoding (no multi-byte sequences, so `convert'/`release'/`data' are left
- * unused); as with XML_XmlDeclHandler's `encoding' argument, `name' is added
- * to the checksum when -type is xml-decl. Returns XML_STATUS_ERROR for any
- * encoding name other than ISO-8859-15, since that's the only one
- * implemented here. */
- 
+/* XML_UnknownEncodingHandler for ISO-8859-15 and Shift_JIS_subset: the only
+ * unrecognized encoding names this program knows how to decode.
+ * encodingHandlerData is `ctx' (set via XML_SetUnknownEncodingHandler's own,
+ * separate data argument, distinct from XML_SetUserData's userData).
+ * ISO-8859-15 fills in `info->map' with a single-byte encoding (no
+ * multi-byte sequences, so `convert'/`release'/`data' are left unused);
+ * Shift_JIS_subset is delegated entirely to the shift_jis_subset static
+ * library (see shift_jis_subset.h) -- shared with the Xpact Eiffel project,
+ * since it never names expat's own XML_Encoding type, only its layout. As
+ * with XML_XmlDeclHandler's `encoding' argument, `name' is added to the
+ * checksum when -type is xml-decl. Returns XML_STATUS_ERROR for any other
+ * encoding name, or if shift_jis_subset_fill_encoding couldn't allocate its
+ * lookup table. */
 static int XMLCALL on_unknown_encoding(void *encodingHandlerData,
                                         const XML_Char *name,
                                         XML_Encoding *info) {
@@ -282,6 +388,9 @@ static int XMLCALL on_unknown_encoding(void *encodingHandlerData,
 		info->convert = NULL;
 		info->release = NULL;
 		result = XML_STATUS_OK;
+	} else if (strcasecmp(name, "Shift_JIS_subset") == 0) {
+		if (shift_jis_subset_fill_encoding(info))
+			result = XML_STATUS_OK;
 	}
 
 	if (ctx->type == TYPE_XML_DECL)

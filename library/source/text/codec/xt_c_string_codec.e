@@ -30,6 +30,7 @@ feature -- Access
 		end
 
 	code_unit_bytes: INTEGER
+		-- number of bytes per code unit
 		deferred
 		end
 

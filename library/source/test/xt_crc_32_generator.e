@@ -59,6 +59,7 @@ feature {NONE} -- Initialisation
 		do
 			Precursor (parse_data)
 			create checksum
+			create canonical_context.make (80)
 		end
 
 feature -- Access
@@ -330,7 +331,12 @@ feature {NONE} -- Parse events
 			inspect data_type
 				when Type_entity then
 					if attached a_context as context then
-						checksum.add_string (context)
+						if context.has ('%F') then
+							canonical_context.set_sorted (context)
+							checksum.add_string (canonical_context)
+						else
+							checksum.add_string (context)
+						end
 						add_external_id := True
 					end
 
@@ -361,9 +367,7 @@ feature {NONE} -- Parse events
 
 	on_unknown_encoding (name: STRING; parse_data: POINTER): detachable XT_CUSTOM_ENCODING_I
 		do
-			if name ~ once "ISO-8859-15" then
-				create {XT_LATIN_15_ENCODING} Result.make
-			end
+			Result := new_test_encoding (name)
 			inspect data_type when Type_xml_declaration then
 				checksum.add_string (name)
 			else end
@@ -382,5 +386,7 @@ feature {NONE} -- Implementation
 feature {NONE} -- Internal attributes
 
 	data_type: INTEGER
+
+	canonical_context: XT_CANONICAL_CONTEXT_BUFFER
 
 end

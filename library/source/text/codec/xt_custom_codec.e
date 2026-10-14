@@ -33,6 +33,8 @@ inherit
 			encoding as encoding_code
 		undefine
 			copy, is_equal
+		redefine
+			reset
 		end
 
 	XT_C_ENCODING_STRUCT
@@ -55,12 +57,14 @@ feature {NONE} -- Initialization
 		do
 			Precursor (a_ptr, n)
 			encoding := Default_encoding
+			create partial_code_unit.make_empty (3)
 		end
 
 	make_codec (n: INTEGER)
 		do
 			Precursor (n)
 			encoding := Default_encoding
+			create partial_code_unit.make_empty (3)
 		end
 
 feature -- Access
@@ -70,72 +74,132 @@ feature -- Access
 			Result := Unknown_encoding
 		end
 
+	partial_code_unit: SPECIAL [CHARACTER]
+		-- raw bytes of a multi-byte sequence left incomplete at the end of the
+		-- previously copied block, to be completed with bytes from the start
+		-- of the next block; meaningless when `partial_code_unit_count' = 0
+
+feature -- Element change
+
+	reset
+		do
+			partial_code_unit.wipe_out
+		end
+
 feature -- Basic operations
 
 	copy_as_utf_8 (dest: SPECIAL [CHARACTER]; dest_index, n: INTEGER)
+		-- copy character content in `area' to `dest' as UTF-8 by decoding each byte sequence in area to unicode
+		-- with user defined `encoding'
 		local
-			dest_full: BOOLEAN; ptr, encoding_ptr: POINTER; c_i: CHARACTER
-			i, i_final, j, remaining_count: INTEGER; code_i: INTEGER
+			i, i_final, j, remaining_count, code_i, byte_count: INTEGER
+			dest_full, partial_sequence, cr_skipped: BOOLEAN
+			ptr, encoding_ptr: POINTER; c_i: CHARACTER
 		do
 			encoding_ptr := encoding.self_ptr; ptr := area; i_final := count - 1
 			remaining_count := n
-			from i := 0; j := dest_index until i > i_final or dest_full loop
-				c_i := c_read_character_8 (ptr, i)
-				inspect c_i when '%R' then
-				-- skip '%R'
-					i := i + 1
+			from i := 0; j := dest_index until i > i_final or dest_full or partial_sequence loop
+				if i = 0 and then partial_code_unit.count > 0 then
+				-- complete the code unit left over from the end of the previously copied block
+					cr_skipped := False
+					code_i := c_map_code (encoding_ptr, c_read_character_8 (partial_code_unit.base_address, 0).code)
+					byte_count := code_i.opposite
+					 if partial_code_unit.count + i_final + 1 < byte_count then
+		          -- still not enough bytes even with the whole of this block
+		            extend_partial_code_unit (0, i_final + 1)
+		            partial_sequence := True
+            	else
+						byte_count := byte_count - partial_code_unit.count; -- bytes still needed, taken from `area'
+            		extend_partial_code_unit (0, byte_count)
+						code_i := c_bytes_to_unicode (encoding_ptr, partial_code_unit.base_address)
+						partial_code_unit.wipe_out
+					end
 				else
-					code_i := c_map_code (encoding_ptr, c_i.code)
-					if code_i <= 0x7F then -- 0xxxxxxx
-						inspect remaining_count when 0 then
-							dest_full := True
-						else
-							dest [j] := c_i
-							j := j + 1
-							remaining_count := remaining_count - 1
-							i := i + 1
-						end
-
-					elseif code_i < 0x7FF then -- 110xxxxx 10xxxxxx
-						inspect remaining_count when 0, 1 then
-							dest_full := True
-						else
-							dest [j] := ((code_i |>> 6) | 0xC0).to_character_8
-							dest [j + 1] := ((code_i & 0x3F) | 0x80).to_character_8
-							j := j + 2
-							remaining_count := remaining_count - 2
-							i := i + 1
-						end
-					elseif code_i < 0xFFFF then -- 1110xxxx 10xxxxxx 10xxxxxx
-						inspect remaining_count when 0 .. 2 then
-							dest_full := True
-						else
-							dest [j] := ((code_i |>> 12) | 0xE0).to_character_8
-							dest [j + 1] := (((code_i |>> 6) & 0x3F) | 0x80).to_character_8
-							dest [j + 2] := ((code_i & 0x3F) | 0x80).to_character_8
-							j := j + 3
-							remaining_count := remaining_count - 3
-							i := i + 1
-						end
+					c_i := c_read_character_8 (ptr, i)
+					inspect c_i when '%R' then
+					-- skip '%R'
+						i := i + 1
+						cr_skipped := True
 					else
-					-- `code_i' <= 1FFFFF - there are no higher code points
-					-- 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-						inspect remaining_count when 0 .. 3 then
-							dest_full := True
+						cr_skipped := False
+						code_i := c_map_code (encoding_ptr, c_i.code)
+						if code_i < 0 then
+							byte_count := code_i.opposite
+							if i + byte_count - 1 > i_final then
+								partial_sequence := True
+								extend_partial_code_unit (i, i_final - i + 1)
+								i := i_final + 1
+							else
+								code_i := c_bytes_to_unicode (encoding_ptr, ptr + i)
+							end
 						else
-							dest [j] := ((code_i |>> 18) | 0xF0).to_character_8
-							dest [j + 1] := (((code_i |>> 12) & 0x3F) | 0x80).to_character_8
-							dest [j + 2] := (((code_i |>> 6) & 0x3F) | 0x80).to_character_8
-							dest [j + 3] := ((code_i & 0x3F) | 0x80).to_character_8
-							j := j + 4
-							remaining_count := remaining_count - 4
-							i := i + 1
+							byte_count := 1
 						end
 					end
 				end
+				if cr_skipped or partial_sequence then
+					do_nothing
+
+				elseif remaining_count < byte_count then
+ 					dest_full := True
+
+				elseif code_i <= 0x7F then -- 0xxxxxxx
+					dest [j] := c_i
+					remaining_count := remaining_count - byte_count
+					i := i + byte_count; j := j + 1
+
+				elseif code_i < 0x7FF then -- 110xxxxx 10xxxxxx
+					fill_2_bytes (dest, j, code_i)
+					remaining_count := remaining_count - byte_count
+					i := i + byte_count; j := j + 2
+
+				elseif code_i < 0xFFFF then -- 1110xxxx 10xxxxxx 10xxxxxx
+					fill_3_bytes (dest, j, code_i)
+					remaining_count := remaining_count - byte_count
+					i := i + byte_count; j := j + 3
+				else
+				-- `code_i' <= 1FFFFF - there are no higher code points
+				-- 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+					fill_4_bytes (dest, j, code_i)
+					remaining_count := remaining_count - byte_count
+					i := i + byte_count; j := j + 4
+				end
 			end
-			utf_8_copied_count := n - remaining_count
 			last_index := i
+			utf_8_copied_count := j - dest_index
+		end
+
+feature {NONE} -- Implementation
+
+	extend_partial_code_unit (index, byte_count: INTEGER)
+		local
+			i: INTEGER
+		do
+			from i := 0 until i = byte_count loop
+				partial_code_unit.extend (c_read_character_8 (area, index + i))
+				i := i + 1
+			end
+		end
+
+	fill_2_bytes (dest: SPECIAL [CHARACTER]; index, code_unit: INTEGER)
+		do
+			dest [index] := ((code_unit |>> 6) | 0xC0).to_character_8
+			dest [index + 1] := ((code_unit & 0x3F) | 0x80).to_character_8
+		end
+
+	fill_3_bytes (dest: SPECIAL [CHARACTER]; index, code_unit: INTEGER)
+		do
+			dest [index] := ((code_unit |>> 12) | 0xE0).to_character_8
+			dest [index + 1] := (((code_unit |>> 6) & 0x3F) | 0x80).to_character_8
+			dest [index + 2] := ((code_unit & 0x3F) | 0x80).to_character_8
+		end
+
+	fill_4_bytes (dest: SPECIAL [CHARACTER]; index, code_unit: INTEGER)
+		do
+			dest [index] := ((code_unit |>> 18) | 0xF0).to_character_8
+			dest [index + 1] := (((code_unit |>> 12) & 0x3F) | 0x80).to_character_8
+			dest [index + 2] := (((code_unit |>> 6) & 0x3F) | 0x80).to_character_8
+			dest [index + 3] := ((code_unit & 0x3F) | 0x80).to_character_8
 		end
 
 feature {NONE} -- Internal attributes

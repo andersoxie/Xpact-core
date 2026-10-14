@@ -49,6 +49,21 @@ feature {NONE} -- Access
 			"((XML_Encoding*) $ptr)->convert"
 		end
 
+	frozen c_bytes_to_unicode (ptr, character_ptr: POINTER): INTEGER
+		-- convert character byte sequnce at address `character_ptr' to unicode value using
+		-- the convert function of XML_Encoding struct at address `ptr'
+		require
+			encoding_attached: is_attached (ptr)
+			convert_attached: is_attached (c_convert (ptr))
+		external
+			"C inline use <xpact.h>"
+		alias
+			"[
+				XML_Encoding* enc = ((XML_Encoding*) $ptr);
+				return enc->convert (enc->data, $character_ptr);
+			]"
+		end
+
 	frozen c_release (ptr: POINTER): POINTER
 		require
 			encoding_attached: is_attached (ptr)

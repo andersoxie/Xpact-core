@@ -3,7 +3,8 @@
 	<target name="xpact_core">
 		<description>
 export:
-	XPACT_INCLUDE = "$EIFFEL/library/Xpact-core/contrib/xpact/include"
+	XPACT_INCLUDE = "$XPACT_CORE/contrib/xpact/include"
+	C_SHIFT_JIS_SUBSET = "$XPACT_CORE/C-tools/shift_jis_subset"
 		</description>
 		<root all_classes="true"/>
 		<option  full_class_checking="false" is_obsolete_routine_type="true"  syntax="standard" warning="warning">
@@ -18,6 +19,14 @@ export:
 		<library name="time" location="$ISE_LIBRARY\library\time\time.ecf" readonly="true"/>
 		<library name="c_zlib" location="$ISE_LIBRARY\C_library\zlib\clibs_zlib.ecf"/>
 		<external_include location="$(XPACT_INCLUDE)"/>
+
+		<external_include location="$(C_SHIFT_JIS_SUBSET)/include"/>
+		<external_object location="$(C_SHIFT_JIS_SUBSET)/lib/libshift_jis_subset.a">
+			<condition>
+				<platform value="unix"/>
+			</condition>
+		</external_object>
+		
 		<cluster name="eiffel_loop" location="../contrib/Eiffel-Loop" recursive="true"/>
 		<!--cluster name="xpact-so" location="$EIFFEL/library/xpact/src" recursive="true"/-->
 

@@ -530,7 +530,7 @@ feature {NONE} -- Implementation
 			if amp_index > -1 then
 				entity_buffer.wipe_out
 				index_buffer.wipe_out
-				inspect scan_attribute_value (buf, start_index, end_index + 1, parse_data, index_buffer, entity_buffer)
+				inspect scan_attribute_value (buf, start_index, end_index + 1, buf.base_address, parse_data, index_buffer, entity_buffer)
 					when 0 then
 						if attached entity_buffer.area as area then
 							from i := 0 until i = area.count or found loop
@@ -594,6 +594,20 @@ feature {NONE} -- Implementation
 						Result := Error_invalid_token
 					end
 				end
+			end
+		end
+
+	new_test_encoding (name: STRING): detachable XT_CUSTOM_ENCODING_I
+		-- test with one of two possible
+		do
+			if name ~ once "ISO-8859-15" then
+			-- Test single-byte encodings
+				create {XT_LATIN_15_ENCODING} Result.make
+
+			elseif name ~ once "Shift_JIS_subset" then
+			-- Test multi-byte encodings
+			-- applies only to test file data/encoding-Shift_JIS_subset.xml
+				create {XT_SHIFT_JIS_TEST_ENCODING} Result.make
 			end
 		end
 

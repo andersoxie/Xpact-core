@@ -283,14 +283,15 @@ feature {NONE} -- Implementation
 			else
 				first := buffer [start_index].natural_32_code
 				if first > 0x7F then
-					if first <= 0x7FF then
+					if first <= 0xDF then
 						-- 110xxxxx 10xxxxxx
 						utf_byte_count := 2
 
-					elseif first <= 0xFFFF then
+					elseif first <= 0xEF then
 						-- 1110xxxx 10xxxxxx 10xxxxxx
 						utf_byte_count := 3
-					else
+
+					elseif first <= 0xF7 then
 						-- first <= 1FFFFF - there are no higher code points
 						-- 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
 						utf_byte_count := 4

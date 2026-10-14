@@ -120,8 +120,8 @@ feature -- Name-character predicates (3-byte UTF-8, U+0800..U+FFFF)
 			b0 := buf [index].code
 			b1 := buf [index + 1].code
 			b2 := buf [index + 2].code
-			pg := name_pages [((b0 |<< 4) & 0x30) | (b1 |>> 4)].to_integer_32
-			idx := (pg |<< 3) + ((b1 & 0xF) |<< 1) + ((b2 |>> 5) & 1)
+			pg := name_pages [((b0 & 0xF) |<< 4) + ((b1 |>> 2) & 0xF)].to_integer_32
+			idx := (pg |<< 3) + ((b1 & 3) |<< 1) + ((b2 |>> 5) & 1)
 			Result := (Naming_bitmap [idx] & ({NATURAL_32} 1 |<< (b2 & 0x1F))) /= 0
 		end
 
@@ -135,8 +135,8 @@ feature -- Name-character predicates (3-byte UTF-8, U+0800..U+FFFF)
 			b0 := buf [index].code
 			b1 := buf [index + 1].code
 			b2 := buf [index + 2].code
-			pg := Name_start_pages [((b0 |<< 4) & 0x30) | (b1 |>> 4)].to_integer_32
-			idx := (pg |<< 3) + ((b1 & 0xF) |<< 1) + ((b2 |>> 5) & 1)
+			pg := Name_start_pages [((b0 & 0xF) |<< 4) + ((b1 |>> 2) & 0xF)].to_integer_32
+			idx := (pg |<< 3) + ((b1 & 3) |<< 1) + ((b2 |>> 5) & 1)
 			Result := (Naming_bitmap [idx] & ({NATURAL_32} 1 |<< (b2 & 0x1F))) /= 0
 		end
 
@@ -287,32 +287,36 @@ feature -- Naming tables
 			-- nmstrtPages[] from nametab.h (256 entries).
 		once
 			create Result.make_filled (0, 256)
-			Result[  0] := 0x02; Result[  1] := 0x03; Result[  2] := 0x04; Result[  3] := 0x05
-			Result[  4] := 0x06; Result[  5] := 0x07; Result[  6] := 0x08; Result[  7] := 0x00
-			Result[  8] := 0x00; Result[  9] := 0x09; Result[ 10] := 0x0A; Result[ 11] := 0x0B
-			Result[ 12] := 0x0C; Result[ 13] := 0x0D; Result[ 14] := 0x0E; Result[ 15] := 0x0F
-			Result[ 16] := 0x10; Result[ 17] := 0x11; Result[ 30] := 0x12; Result[ 31] := 0x13
-			Result[ 33] := 0x14; Result[ 48] := 0x15; Result[ 49] := 0x16
-			Result.fill_with (0x01, 78, 138)
-			Result[139] := 0x17
-			Result.fill_with (0x01, 148, 190)
-			Result[191] := 0x18
+			if attached Result as t then
+				t [ 0] := 0x02; t [ 1] := 0x03; t [ 2] := 0x04; t [ 3] := 0x05
+				t [ 4] := 0x06; t [ 5] := 0x07; t [ 6] := 0x08; t [ 7] := 0x00
+				t [ 8] := 0x00; t [ 9] := 0x09; t [10] := 0x0A; t [11] := 0x0B
+				t [12] := 0x0C; t [13] := 0x0D; t [14] := 0x0E; t [15] := 0x0F
+				t [16] := 0x10; t [17] := 0x11; t [30] := 0x12; t [31] := 0x13
+				t [33] := 0x14; t [48] := 0x15; t [49] := 0x16
+				Result.fill_with (0x01, 78, 158)
+				t [159] := 0x17
+				Result.fill_with (0x01, 172, 214)
+				t [215] := 0x18
+			end
 		end
 
 	Name_pages: SPECIAL [NATURAL_8]
 			-- namePages[] from nametab.h (256 entries).
 		once
 			create Result.make_filled (0, 256)
-			Result[  0] := 0x19; Result[  1] := 0x03; Result[  2] := 0x1A; Result[  3] := 0x1B
-			Result[  4] := 0x1C; Result[  5] := 0x1D; Result[  6] := 0x1E; Result[  9] := 0x1F
-			Result[ 10] := 0x20; Result[ 11] := 0x21; Result[ 12] := 0x22; Result[ 13] := 0x23
-			Result[ 14] := 0x24; Result[ 15] := 0x25; Result[ 16] := 0x10; Result[ 17] := 0x11
-			Result[ 30] := 0x12; Result[ 31] := 0x13; Result[ 32] := 0x26; Result[ 33] := 0x14
-			Result[ 48] := 0x27; Result[ 49] := 0x16
-			Result.fill_with (0x01, 78, 138)
-			Result[139] := 0x17
-			Result.fill_with (0x01, 148, 190)
-			Result[191] := 0x18
+			if attached Result as t then
+				t [ 0] := 0x19; t [ 1] := 0x03; t [ 2] := 0x1A; t [ 3] := 0x1B
+				t [ 4] := 0x1C; t [ 5] := 0x1D; t [ 6] := 0x1E; t [ 9] := 0x1F
+				t [10] := 0x20; t [11] := 0x21; t [12] := 0x22; t [13] := 0x23
+				t [14] := 0x24; t [15] := 0x25; t [16] := 0x10; t [17] := 0x11
+				t [30] := 0x12; t [31] := 0x13; t [32] := 0x26; t [33] := 0x14
+				t [48] := 0x27; t [49] := 0x16
+				Result.fill_with (0x01, 78, 158)
+				t [159] := 0x17
+				Result.fill_with (0x01, 172, 214)
+				t [215] := 0x18
+			end
 		end
 
 end

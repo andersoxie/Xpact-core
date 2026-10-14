@@ -38,7 +38,6 @@ inherit
 			copy, is_equal
 		end
 
-
 feature {NONE} -- Initialization
 
 	make

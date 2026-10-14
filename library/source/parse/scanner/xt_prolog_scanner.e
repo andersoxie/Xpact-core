@@ -40,19 +40,19 @@ feature -- Prolog tokenization
 		require
 			valid_range: valid_range (buf, start_index, end_index)
 		local
-			index, tok, bt_code, byte_count: INTEGER
+			index, tok, bt_code, byte_count: INTEGER; buf_ptr: POINTER
 		do
-			index := start_index
+			buf_ptr := buf.base_address; index := start_index
 			if index >= end_index then
 				Result := Tok_none
 			else
 				bt_code := c_byte_table_item (parse_data, buf [index].code)
 				inspect bt_code
 					when BT_quote then
-						Result := scan_literal (buf, index + 1, end_index, BT_quote, parse_data)
+						Result := scan_literal (buf, index + 1, end_index, BT_quote, buf_ptr, parse_data)
 
 					when BT_apostrophe then
-						Result := scan_literal (buf, index + 1, end_index, BT_apostrophe, parse_data)
+						Result := scan_literal (buf, index + 1, end_index, BT_apostrophe, buf_ptr, parse_data)
 
 					when BT_lt then
 						index := index + 1
@@ -61,9 +61,9 @@ feature -- Prolog tokenization
 						else
 							inspect c_byte_table_item (parse_data, buf [index].code)
 								when BT_exclamation then
-									Result := scan_decl (buf, index + 1, end_index, parse_data)
+									Result := scan_decl (buf, index + 1, end_index, buf_ptr, parse_data)
 								when BT_question then
-									Result := scan_pi (buf, index + 1, end_index, parse_data)
+									Result := scan_pi (buf, index + 1, end_index, buf_ptr, parse_data)
 								when BT_name_start, BT_hex_digit, BT_non_ascii, BT_lead_2_byte, BT_lead_3_byte, BT_lead_4_byte then
 									next_token_index := index - 1
 									Result := Tok_instance_start
@@ -76,12 +76,12 @@ feature -- Prolog tokenization
 							next_token_index := end_index
 							Result := -Tok_prolog_whitespace
 						else
-							Result := scan_prolog_whitespace (buf, index, end_index, parse_data)
+							Result := scan_prolog_whitespace (buf, index, end_index, buf_ptr, parse_data)
 						end
 					when BT_whitespace, BT_LF then
-						Result := scan_prolog_whitespace (buf, index, end_index, parse_data)
+						Result := scan_prolog_whitespace (buf, index, end_index, buf_ptr, parse_data)
 					when BT_percent then
-						Result := scan_percent (buf, index + 1, end_index, parse_data)
+						Result := scan_percent (buf, index + 1, end_index, buf_ptr, parse_data)
 					when BT_comma then
 						next_token_index := index + 1; Result := Tok_comma
 
@@ -129,15 +129,15 @@ feature -- Prolog tokenization
 					when BT_gt then
 						next_token_index := index + 1; Result := Tok_decl_close
 					when BT_hash then
-						Result := scan_pound_name (buf, index + 1, end_index, parse_data)
+						Result := scan_pound_name (buf, index + 1, end_index, buf_ptr, parse_data)
 					when BT_name_start, BT_hex_digit then
 						tok := Tok_name
 						index := index + 1
-						Result := scan_name_or_name_token (buf, index, end_index, tok, parse_data)
+						Result := scan_name_or_name_token (buf, index, end_index, tok, buf_ptr, parse_data)
 					when BT_digit, BT_name_only, BT_minus then
 						tok := tok_name_token
 						index := index + 1
-						Result := scan_name_or_name_token (buf, index, end_index, tok, parse_data)
+						Result := scan_name_or_name_token (buf, index, end_index, tok, buf_ptr, parse_data)
 
 					when BT_lead_2_byte, BT_lead_3_byte, BT_lead_4_byte then
 						byte_count := bt_code - 3
@@ -147,10 +147,10 @@ feature -- Prolog tokenization
 							next_token_index := index; Result := Tok_invalid
 						elseif is_name_start_character (buf, index, byte_count) then
 							tok := Tok_name; index := index + byte_count
-							Result := scan_name_or_name_token (buf, index, end_index, tok, parse_data)
+							Result := scan_name_or_name_token (buf, index, end_index, tok, buf_ptr, parse_data)
 						elseif is_name_character (buf, index, byte_count) then
 							tok := tok_name_token; index := index + byte_count
-							Result := scan_name_or_name_token (buf, index, end_index, tok, parse_data)
+							Result := scan_name_or_name_token (buf, index, end_index, tok, buf_ptr, parse_data)
 						else
 							next_token_index := index; Result := Tok_invalid
 						end
@@ -220,27 +220,27 @@ feature -- Status query
 		require
 			valid_range: start_index <= end_index and end_index <= buf.count
 		local
-			index, tok, bt_code, byte_count: INTEGER
+			index, tok, bt_code, byte_count: INTEGER; buf_ptr: POINTER
 		do
-			index := start_index
+			buf_ptr := buf.base_address; index := start_index
 			if index < end_index then
 				bt_code := c_byte_table_item (parse_data, buf [index].code)
 				inspect bt_code
 					when BT_quote then
-						Result := scan_literal (buf, index + 1, end_index, BT_quote, parse_data) = Tok_literal
+						Result := scan_literal (buf, index + 1, end_index, BT_quote, buf_ptr, parse_data) = Tok_literal
 
 					when BT_apostrophe then
-						Result := scan_literal (buf, index + 1, end_index, BT_apostrophe, parse_data) = Tok_literal
+						Result := scan_literal (buf, index + 1, end_index, BT_apostrophe, buf_ptr, parse_data) = Tok_literal
 
 					when BT_lt then
 						index := index + 1
 						if index < end_index then
 							inspect c_byte_table_item (parse_data, buf [index].code)
 								when BT_exclamation then
-									Result := scan_decl (buf, index + 1, end_index, parse_data) = Tok_decl_open
+									Result := scan_decl (buf, index + 1, end_index, buf_ptr, parse_data) = Tok_decl_open
 
 								when BT_question then
-									inspect scan_pi (buf, index + 1, end_index, parse_data) when Tok_pi, Tok_xml_decl then
+									inspect scan_pi (buf, index + 1, end_index, buf_ptr, parse_data) when Tok_pi, Tok_xml_decl then
 										Result := True
 									else
 										Result := False
@@ -256,14 +256,15 @@ feature -- Status query
 						if index + 1 = end_index then
 							next_token_index := end_index
 						else
-							Result := scan_prolog_whitespace (buf, index, end_index, parse_data) /= Tok_prolog_whitespace
+							Result := scan_prolog_whitespace (buf, index, end_index, buf_ptr, parse_data) /= Tok_prolog_whitespace
 						end
 					when BT_whitespace, BT_LF then
-						Result := scan_prolog_whitespace (buf, index, end_index, parse_data) /= Tok_prolog_whitespace
+						Result := scan_prolog_whitespace (buf, index, end_index, buf_ptr, parse_data) /= Tok_prolog_whitespace
 
 					when BT_percent then
-						inspect scan_percent (buf, index + 1, end_index, parse_data) when Tok_param_entity_ref, Tok_percent then
-							Result := True
+						inspect scan_percent (buf, index + 1, end_index, buf_ptr, parse_data)
+							when Tok_param_entity_ref, Tok_percent then
+								Result := True
 						else
 							Result := False
 						end
@@ -318,17 +319,17 @@ feature -- Status query
 						next_token_index := index + 1; Result := True
 
 					when BT_hash then
-						Result := scan_pound_name (buf, index + 1, end_index, parse_data) = Tok_pound_name
+						Result := scan_pound_name (buf, index + 1, end_index, buf_ptr, parse_data) = Tok_pound_name
 
 					when BT_name_start, BT_hex_digit, BT_colon then
 						tok := Tok_name
 						index := index + 1
-						Result := scan_name_or_name_token (buf, index, end_index, tok, parse_data) = Tok_name
+						Result := scan_name_or_name_token (buf, index, end_index, tok, buf_ptr, parse_data) = Tok_name
 
 					when BT_digit, BT_name_only, BT_minus then
 						tok := Tok_name_token
 						index := index + 1
-						Result := scan_name_or_name_token (buf, index, end_index, tok, parse_data) = Tok_name_token
+						Result := scan_name_or_name_token (buf, index, end_index, tok, buf_ptr, parse_data) = Tok_name_token
 
 					when BT_lead_2_byte, BT_lead_3_byte, BT_lead_4_byte then
 						byte_count := bt_code - 3
@@ -338,11 +339,11 @@ feature -- Status query
 							next_token_index := index; Result := Tok_invalid.to_boolean
 						elseif is_name_start_character (buf, index, byte_count) then
 							tok := Tok_name; index := index + byte_count
-							Result := scan_name_or_name_token (buf, index, end_index, tok, parse_data) = Tok_name
+							Result := scan_name_or_name_token (buf, index, end_index, tok, buf_ptr, parse_data) = Tok_name
 
 						elseif is_name_character (buf, index, byte_count) then
 							tok := Tok_name_token; index := index + byte_count
-							Result := scan_name_or_name_token (buf, index, end_index, tok, parse_data) = Tok_name_token
+							Result := scan_name_or_name_token (buf, index, end_index, tok, buf_ptr, parse_data) = Tok_name_token
 						else
 							next_token_index := index; Result := False
 						end
@@ -354,14 +355,14 @@ feature -- Status query
 
 feature {NONE} -- Prolog sub-scanners
 
-	scan_percent (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER; parse_data: POINTER): INTEGER
+	scan_percent (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER; buf_ptr, parse_data: POINTER): INTEGER
 			-- Scan parameter entity reference after '%'.
 		require
 			valid_range: valid_range (buf, start_index, end_index)
 		local
-			index: INTEGER; done: BOOLEAN; buf_ptr: POINTER
+			index: INTEGER; done: BOOLEAN
 		do
-			buf_ptr := buf.base_address; index := start_index
+			index := start_index
 			if index >= end_index then
 				Result := Tok_partial
 
@@ -392,14 +393,14 @@ feature {NONE} -- Prolog sub-scanners
 			end
 		end
 
-	scan_pound_name (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER; parse_data: POINTER): INTEGER
+	scan_pound_name (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER; buf_ptr, parse_data: POINTER): INTEGER
 			-- Scan #name after '#'.  Negative result means partial token.
 		require
 			valid_range: valid_range (buf, start_index, end_index)
 		local
-			index: INTEGER; done: BOOLEAN; buf_ptr: POINTER
+			index: INTEGER; done: BOOLEAN
 		do
-			buf_ptr := buf.base_address; index := start_index
+			index := start_index
 			if index >= end_index then
 				Result := Tok_partial
 
@@ -426,16 +427,16 @@ feature {NONE} -- Prolog sub-scanners
 			end
 		end
 
-	scan_literal (buf: SPECIAL [CHARACTER]; start_index, end_index, a_open: INTEGER; parse_data: POINTER): INTEGER
+	scan_literal (buf: SPECIAL [CHARACTER]; start_index, end_index, a_open: INTEGER; buf_ptr, parse_data: POINTER): INTEGER
 		-- Scan quoted literal (attribute or entity value delimited by
 		-- a_open quote type BT_quote or BT_apostrophe).
 		-- Returns Tok_literal or negative (partial) or Tok_invalid.
 		require
 			valid_range: valid_range (buf, start_index, end_index)
 		local
-			index, bt_code, byte_count: INTEGER; done: BOOLEAN; buf_ptr: POINTER
+			index, bt_code, byte_count: INTEGER; done: BOOLEAN
 		do
-			buf_ptr := buf.base_address; index := start_index; newline_or_tab_found := False
+			index := start_index; newline_or_tab_found := False
 			from until index >= end_index or done loop
 				bt_code := c_byte_type_code (parse_data, buf_ptr + index)
 				inspect bt_code
@@ -481,14 +482,14 @@ feature {NONE} -- Prolog sub-scanners
 			end
 		end
 
-	scan_prolog_whitespace (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER; parse_data: POINTER): INTEGER
+	scan_prolog_whitespace (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER; buf_ptr, parse_data: POINTER): INTEGER
 		-- Collect whitespace run and return `Tok_prolog_whitespace'.
 		require
 			valid_range: valid_range (buf, start_index, end_index)
 		local
-			index: INTEGER; buf_ptr: POINTER
+			index: INTEGER
 		do
-			buf_ptr := buf.base_address; index := start_index
+			index := start_index
 			from index := index + 1 until index >= end_index loop
 				inspect c_byte_type_code (parse_data, buf_ptr + index)
 					when BT_whitespace, BT_LF then
@@ -509,7 +510,7 @@ feature {NONE} -- Prolog sub-scanners
 		end
 
 	scan_name_or_name_token (
-		buf: SPECIAL [CHARACTER]; start_index, end_index, a_tok: INTEGER; parse_data: POINTER
+		buf: SPECIAL [CHARACTER]; start_index, end_index, a_tok: INTEGER; buf_ptr, parse_data: POINTER
 	): INTEGER
 			-- Continue scanning a name or nmtoken started by caller.
 			-- a_tok is Tok_name or Tok_nmtoken from the first character.
@@ -517,13 +518,26 @@ feature {NONE} -- Prolog sub-scanners
 		require
 			valid_range: valid_range (buf, start_index, end_index)
 		local
-			index, tok: INTEGER; done: BOOLEAN; buf_ptr: POINTER
+			index, tok, bt_code, byte_count: INTEGER; done: BOOLEAN
 		do
-			buf_ptr := buf.base_address; tok := a_tok; index := start_index
+			tok := a_tok; index := start_index
 			from until index >= end_index or done loop
-				inspect c_byte_type_code (parse_data, buf_ptr + index)
+				bt_code := c_byte_type_code (parse_data, buf_ptr + index)
+				inspect bt_code
 					when BT_name_start, BT_hex_digit, BT_digit, BT_name_only, BT_minus, BT_colon then
 						index := index + 1
+
+					when BT_lead_2_byte, BT_lead_3_byte, BT_lead_4_byte then
+						byte_count := bt_code - 3
+						if end_index - index < byte_count then
+							Result := Tok_partial_char; done := True
+
+						elseif is_invalid_character (buf, index, byte_count) then
+							next_token_index := index
+							Result := Tok_invalid; done := True
+						else
+							index := index + byte_count
+						end
 
 					when BT_gt, BT_right_parenthesis, BT_comma, BT_pipe_symbol, BT_left_square_bracket,
 						BT_percent, BT_whitespace, BT_CR, BT_LF then
@@ -560,14 +574,14 @@ feature {NONE} -- Prolog sub-scanners
 			end
 		end
 
-	scan_name (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER; parse_data: POINTER): INTEGER
+	scan_name (buf: SPECIAL [CHARACTER]; start_index, end_index: INTEGER; buf_ptr, parse_data: POINTER): INTEGER
 		-- check if `buf' from `start_index .. end_index' is a valid name
 		require
 			valid_range: valid_range (buf, start_index, end_index)
 		local
-			index, bt_code, byte_count: INTEGER; done: BOOLEAN; buf_ptr: POINTER
+			index, bt_code, byte_count: INTEGER; done: BOOLEAN
 		do
-			buf_ptr := buf.base_address; index := start_index
+			index := start_index
 			Result := Tok_name
 			from until index >= end_index or done loop
 				bt_code := c_byte_type_code (parse_data, buf_ptr + index)

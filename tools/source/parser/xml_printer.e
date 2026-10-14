@@ -74,9 +74,7 @@ feature {NONE} -- Event handlers
 
 	on_base_unknown_encoding (name: STRING; parse_data: POINTER): detachable XT_CUSTOM_ENCODING_I
 		do
-			if name ~ once "ISO-8859-15" then
-				create {XT_LATIN_15_ENCODING} Result.make
-			end
+			Result := new_test_encoding (name)
 		end
 
 	on_comment (text: STRING_8)
