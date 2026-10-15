@@ -54,30 +54,30 @@ feature -- Element change
 			grow (context.count)
 			l_area := area
 			share (context)
-			from sep_index := 0 until done loop
-				l_lower := sep_index + 1
-				sep_index := index_of ('%F', sep_index + 1)
-				if sep_index > 0 then
-					l_upper := sep_index - 1
-					interval_list.extend (ir.compact (l_lower, l_upper))
-				else
-					done := True
-				end
-			end
-			interval_list.extend (ir.compact (l_lower, count))
-			check
-				valid_count: interval_list.count = context.occurrences ('%F') + 1
-			end
-			if interval_list.count > 0 then
-				last := interval_list.last
-				interval_list.finish
-				interval_list.remove -- exclude entity name from sort
-				quick.sort (interval_list)
-				interval_list.extend (last) -- sorted, so we add back the entity name
-			end
-			area := l_area
-			wipe_out
 			if attached interval_list as list then
+				from sep_index := 0 until done loop
+					l_lower := sep_index + 1
+					sep_index := index_of ('%F', sep_index + 1)
+					if sep_index > 0 then
+						l_upper := sep_index - 1
+						list.extend (ir.compact (l_lower, l_upper))
+					else
+						done := True
+					end
+				end
+				list.extend (ir.compact (l_lower, count))
+				check
+					valid_count: list.count = context.occurrences ('%F') + 1
+				end
+				if list.count > 0 then
+					last := list.last
+					list.finish
+					list.remove -- exclude entity name from sort
+					quick.sort (list)
+					list.extend (last) -- sorted, so we add back the entity name
+				end
+				area := l_area
+				wipe_out
 				from list.start until list.after loop
 					if list.index > 1 then
 						append_character ('%F')
@@ -128,8 +128,8 @@ feature {NONE} -- Implementation
 feature {NONE} -- Internal attributes
 
 	interval_list: ARRAYED_LIST [INTEGER_64]
-			-- one packed [l_lower, l_upper] entry per '%F' separated field appended
-			-- so far, in the order appended
+		-- array of string intervals `lower |..| upper' compacted as
+		-- `(lower.to_integer_64 |<< 32) | upper.to_integer_64'
 
 	quick: QUICK_SORTER [INTEGER_64]
 

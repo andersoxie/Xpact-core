@@ -272,6 +272,7 @@ feature {NONE} -- Internal structures
 		-- Raw byte buffer; do not modify indices outside this class.
 
 	codec: XT_C_STRING_CODEC
+		-- codec wrapper for current data chunk being parsed
 
 	doctype_name_cache: XT_NAME_CACHE
 		-- name cache for use in all DOCTYPE declarations

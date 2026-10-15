@@ -150,6 +150,7 @@ feature -- Basic operations
 
 				else
 					codec.reset_utf_8_to_count_ratio
+				-- Copy data from codec buffer as UTF-8 into parse buffer until emptied
 					from utf_8_copied_count := 0; done := codec.count = 0 until Result > 0 or done loop
 						estimated_utf_8_count := codec.estimated_utf_8_count
 						if prepare_buffer (utf_8_copied_count + estimated_utf_8_count) then

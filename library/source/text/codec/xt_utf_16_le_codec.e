@@ -26,8 +26,6 @@ inherit
 	XT_C_STRING_CODEC
 		undefine
 			copy, is_equal
-		redefine
-			character_count
 		end
 
 	EL_EIFFEL_C_API
@@ -46,13 +44,6 @@ feature -- Access
 		end
 
 	partial_code_unit: INTEGER
-
-feature -- Measurement
-
-	character_count: INTEGER
-		do
-			Result := count // 2
-		end
 
 feature -- Basic operations
 

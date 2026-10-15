@@ -1,5 +1,5 @@
 note
-	description: "Writes UTF-8 encoded characters into ${SPECIAL [CHARACTER]} array"
+	description: "Writes UTF-8 encoded characters into parse buffer array of type ${SPECIAL [CHARACTER]}"
 
 	author: "Finnian Reilly"
 	copyright: "Copyright (c) 2001-2026 Finnian Reilly"
@@ -58,9 +58,11 @@ feature -- Measurement
 	characters_copied_count: INTEGER
 		-- character count of data copied into `dest' argument in last call to `copy_as_utf_8'
 
+feature -- Measurement
+
 	character_count: INTEGER
 		do
-			Result := count
+			Result := count // code_unit_bytes
 		end
 
 	estimated_utf_8_count: INTEGER
