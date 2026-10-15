@@ -76,6 +76,7 @@ feature -- Basic operations
 			end
 			utf_8_copied_count := n - remaining_count
 			last_index := i
+			set_utf_8_to_count_ratio
 		end
 
 feature {NONE} -- Constants

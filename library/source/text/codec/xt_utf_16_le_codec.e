@@ -27,7 +27,7 @@ inherit
 		undefine
 			copy, is_equal
 		redefine
-			character_count, reset
+			character_count
 		end
 
 	EL_EIFFEL_C_API
@@ -52,13 +52,6 @@ feature -- Measurement
 	character_count: INTEGER
 		do
 			Result := count // 2
-		end
-
-feature -- Element change
-
-	reset
-		do
-			partial_code_unit := 0
 		end
 
 feature -- Basic operations
@@ -190,6 +183,7 @@ feature -- Basic operations
 			end
 			utf_8_copied_count := n - remaining_count
 			last_index := i * 2
+			set_utf_8_to_count_ratio
 		end
 
 feature {NONE} -- Implementation

@@ -74,6 +74,7 @@ feature -- Basic operations
 			end
 			last_index := i
 			utf_8_copied_count := j - dest_index
+			set_utf_8_to_count_ratio
 		end
 
 end

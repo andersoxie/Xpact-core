@@ -33,8 +33,6 @@ inherit
 			encoding as encoding_code
 		undefine
 			copy, is_equal
-		redefine
-			reset
 		end
 
 	XT_C_ENCODING_STRUCT
@@ -78,13 +76,6 @@ feature -- Access
 		-- raw bytes of a multi-byte sequence left incomplete at the end of the
 		-- previously copied block, to be completed with bytes from the start
 		-- of the next block; meaningless when `partial_code_unit_count' = 0
-
-feature -- Element change
-
-	reset
-		do
-			partial_code_unit.wipe_out
-		end
 
 feature -- Basic operations
 
@@ -140,33 +131,47 @@ feature -- Basic operations
 				if cr_skipped or partial_sequence then
 					do_nothing
 
-				elseif remaining_count < byte_count then
- 					dest_full := True
-
 				elseif code_i <= 0x7F then -- 0xxxxxxx
-					dest [j] := c_i
-					remaining_count := remaining_count - byte_count
-					i := i + byte_count; j := j + 1
+					inspect remaining_count when 0 then
+						dest_full := True
+					else
+						dest [j] := c_i
+						remaining_count := remaining_count - 1
+						i := i + byte_count; j := j + 1
+					end
 
 				elseif code_i < 0x7FF then -- 110xxxxx 10xxxxxx
-					fill_2_bytes (dest, j, code_i)
-					remaining_count := remaining_count - byte_count
-					i := i + byte_count; j := j + 2
+					inspect remaining_count when 0, 1 then
+						dest_full := True
+					else
+						fill_2_bytes (dest, j, code_i)
+						remaining_count := remaining_count - 2
+						i := i + byte_count; j := j + 2
+					end
 
 				elseif code_i < 0xFFFF then -- 1110xxxx 10xxxxxx 10xxxxxx
-					fill_3_bytes (dest, j, code_i)
-					remaining_count := remaining_count - byte_count
-					i := i + byte_count; j := j + 3
+					inspect remaining_count when 0, 1, 2 then
+						dest_full := True
+					else
+						fill_3_bytes (dest, j, code_i)
+						remaining_count := remaining_count - 3
+						i := i + byte_count; j := j + 3
+					end
 				else
-				-- `code_i' <= 1FFFFF - there are no higher code points
-				-- 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-					fill_4_bytes (dest, j, code_i)
-					remaining_count := remaining_count - byte_count
-					i := i + byte_count; j := j + 4
+					inspect remaining_count when 0, 1, 2, 3 then
+						dest_full := True
+					else
+					-- `code_i' <= 1FFFFF - there are no higher code points
+					-- 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+						fill_4_bytes (dest, j, code_i)
+						remaining_count := remaining_count - 4
+						i := i + byte_count; j := j + 4
+					end
 				end
 			end
 			last_index := i
 			utf_8_copied_count := j - dest_index
+			set_utf_8_to_count_ratio
 		end
 
 feature {NONE} -- Implementation

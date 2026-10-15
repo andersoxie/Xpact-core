@@ -113,7 +113,8 @@ feature -- Basic operations
 		require
 			content_count_at_least_1: parsed_content_count >= 1 -- guards against division by zero later
 		local
-			write_start, remaining_count, utf_8_copied_count: INTEGER; parse_data: POINTER
+			utf_8_copied_count, estimated_utf_8_count: INTEGER; parse_data: POINTER
+			done: BOOLEAN
 		do
 			parse_data := parser_data.self_ptr
 			inspect parsing_state
@@ -124,7 +125,6 @@ feature -- Basic operations
 					else
 						read_declaration (chunk)
 					end
-
 					inspect error_code when Error_none then
 						parsing_state := State_initialized
 						Result := parse (codec, a_is_final) -- Recurse
@@ -148,39 +148,24 @@ feature -- Basic operations
 				if not call_on_start_parsing then
 					Result := Status_error
 
-				elseif not prepare_buffer (codec.character_count) then
-					Result := Status_error
-
 				else
-					write_start := buffer_end
-					if chunk.count > 0 then
-					-- Copy caller's bytes into the internal buffer.
-					-- Destination index < source index is impossible here
-					-- (write_start is past all existing data), so copy_data is safe.
-						codec.copy_as_utf_8 (buffer, write_start, codec.character_count)
-						if codec.not_well_formed then
-							error_code := Error_invalid_token
-							Result := Status_error
-						else
-							utf_8_copied_count := codec.utf_8_copied_count
-							remaining_count := codec.count - codec.last_index
-							if remaining_count > 0 then
-								codec.remove_head (codec.last_index)
-								if prepare_buffer (utf_8_copied_count + codec.character_count) then
-									codec.copy_as_utf_8 (buffer, write_start + utf_8_copied_count, remaining_count)
-									if codec.not_well_formed then
-										error_code := Error_invalid_token
-										Result := Status_error
-									else
-										Result := parse_buffer (utf_8_copied_count + codec.utf_8_copied_count, a_is_final, parse_data)
-									end
-								else
-									Result := Status_error
-								end
+					codec.reset_utf_8_to_count_ratio
+					from utf_8_copied_count := 0; done := codec.count = 0 until Result > 0 or done loop
+						estimated_utf_8_count := codec.estimated_utf_8_count
+						if prepare_buffer (utf_8_copied_count + estimated_utf_8_count) then
+							codec.copy_as_utf_8 (buffer, buffer_end + utf_8_copied_count, estimated_utf_8_count)
+							utf_8_copied_count := utf_8_copied_count + codec.utf_8_copied_count
+							if codec.uncopied_count = 0 or codec.utf_8_copied_count = 0 then
+								done := True
 							else
-								Result := parse_buffer (codec.utf_8_copied_count, a_is_final, parse_data)
+								codec.remove_head (codec.last_index)
 							end
+						else
+							Result := Status_error
 						end
+					end
+					if Result = 0 and then utf_8_copied_count > 0 then
+						Result := parse_buffer (utf_8_copied_count, a_is_final, parse_data)
 					end
 				end
 				if a_is_final then

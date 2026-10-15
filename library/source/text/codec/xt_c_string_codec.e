@@ -42,10 +42,6 @@ feature -- Access
 
 feature -- Status query
 
-	not_well_formed: BOOLEAN
-		do
-		end
-
 	pending_CR: BOOLEAN
 		-- `True' if previous content ended with '%R'
 
@@ -55,16 +51,35 @@ feature -- Measurement
 		deferred
 		end
 
+	count: INTEGER
+		deferred
+		end
+
+	characters_copied_count: INTEGER
+		-- character count of data copied into `dest' argument in last call to `copy_as_utf_8'
+
 	character_count: INTEGER
 		do
 			Result := count
 		end
 
-	count: INTEGER
-		deferred
+	estimated_utf_8_count: INTEGER
+		do
+			if utf_8_to_count_ratio.is_nan then
+				Result := character_count
+			else
+				Result := (count * utf_8_to_count_ratio).ceiling
+			end
 		end
 
 	utf_8_copied_count: INTEGER
+		-- byte count of data copied into `dest' argument in last call to `copy_as_utf_8'
+
+	uncopied_count: INTEGER
+		-- remaining uncopied data after last call to `copy_as_utf_8'
+		do
+			Result := count - last_index
+		end
 
 feature -- Element change
 
@@ -74,8 +89,9 @@ feature -- Element change
 		deferred
 		end
 
-	reset
+	reset_utf_8_to_count_ratio
 		do
+			utf_8_to_count_ratio := utf_8_to_count_ratio.nan
 		end
 
 feature -- Basic operations
@@ -84,6 +100,20 @@ feature -- Basic operations
 		require
 			big_enough: dest.valid_index (dest_index + n - 1)
 		deferred
+		ensure
+			valid_last_index: last_index + uncopied_count = count
+			utf_8_to_count_ratio_set: not utf_8_to_count_ratio.is_nan
 		end
+
+	set_utf_8_to_count_ratio
+		do
+			if utf_8_to_count_ratio.is_nan then
+				utf_8_to_count_ratio := utf_8_copied_count / last_index.max (1)
+			end
+		end
+
+feature {NONE} -- Internal attributes
+
+	utf_8_to_count_ratio: DOUBLE
 
 end
